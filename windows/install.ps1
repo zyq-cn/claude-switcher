@@ -258,6 +258,9 @@ New-Item -ItemType Directory -Force -Path $BASE | Out-Null
 Copy-Item "$PSScriptRoot\claude-switch.ps1"   "$BASE\claude-switch.ps1" -Force
 Copy-Item "$PSScriptRoot\SwitcherUI.ps1"      "$BASE\SwitcherUI.ps1" -Force
 Copy-Item "$PSScriptRoot\claude-bodyguard.ps1" "$BASE\claude-bodyguard.ps1" -Force
+if (Test-Path -LiteralPath "$PSScriptRoot\uninstall.ps1") {
+    Copy-Item "$PSScriptRoot\uninstall.ps1" "$BASE\uninstall.ps1" -Force
+}
 
 # 写入探测到的客户端模式/代理组名/国家/时区/地区格式(替换串里的 $ 用 $$ 转义,避免被当作捕获组)
 $core = Get-Content "$BASE\claude-switch.ps1" -Raw
@@ -305,7 +308,20 @@ if ($PROXY_MODE -eq 'clash-verge') {
     Write-Host "[OK] 非 Clash Verge:请在你的代理客户端中为 Claude 域名添加置顶/直连规则" -ForegroundColor Yellow
 }
 
-# ---- 7. 系统级配置 ----
+# ---- 7. 系统级配置(首次安装留底,供 uninstall.ps1 还原;重装不覆盖原始记录) ----
+if (-not (Test-Path -LiteralPath "$BASE\system-originals.json")) {
+    try {
+        $v6Enabled = @(Get-NetAdapterBinding -ComponentID ms_tcpip6 -ErrorAction SilentlyContinue | Where-Object { $_.Enabled } | Select-Object -ExpandProperty Name)
+        [ordered]@{
+            timeZone     = (Get-TimeZone).Id
+            culture      = [string][System.Globalization.CultureInfo]::CurrentCulture.Name
+            ipv6Adapters = $v6Enabled
+            recordedAt   = (Get-Date).ToString('yyyy-MM-ddTHH:mm:ss')
+        } | ConvertTo-Json -Depth 3 | Out-File -LiteralPath "$BASE\system-originals.json" -Encoding utf8
+    } catch {
+        Write-Host "[WARN] 未能记录原始系统设置,卸载时将无法自动还原" -ForegroundColor Yellow
+    }
+}
 Set-TimeZone -Id $TZ_TARGET
 try {
     Set-Culture -CultureInfo $LOCALE_TARGET -ErrorAction Stop
@@ -317,10 +333,11 @@ Get-NetAdapterBinding -ComponentID ms_tcpip6 -ErrorAction SilentlyContinue | Whe
 Clear-DnsClientCache
 Write-Host "[OK] 时区已锁定 / IPv6 已关闭 / DNS 缓存已刷新" -ForegroundColor Green
 
-# ---- 8. 注册保镖计划任务 ----
+# ---- 8. 注册保镖计划任务(电池供电与长时间常驻同样生效,异常退出自动重启) ----
 $action  = New-ScheduledTaskAction -Execute 'powershell.exe' -Argument "-NoProfile -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$BASE\claude-bodyguard.ps1`""
 $trigger = New-ScheduledTaskTrigger -AtLogOn
-Register-ScheduledTask -TaskName 'ClaudeBodyguard' -Action $action -Trigger $trigger -Force | Out-Null
+$bgSettings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -ExecutionTimeLimit (New-TimeSpan -Seconds 0) -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
+Register-ScheduledTask -TaskName 'ClaudeBodyguard' -Action $action -Trigger $trigger -Settings $bgSettings -Force | Out-Null
 Stop-ScheduledTask -TaskName 'ClaudeBodyguard' -ErrorAction SilentlyContinue
 Start-ScheduledTask -TaskName 'ClaudeBodyguard'
 Write-Host "[OK] 保镖已注册并启动(计划任务,登录自动运行)" -ForegroundColor Green

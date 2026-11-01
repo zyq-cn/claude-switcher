@@ -165,6 +165,19 @@ claude-switch.ps1 diagnose-proxy --config <私有配置.json>
 
 也可设置 `CLAUDE_SWITCHER_PROXY_URL`。支持 `http`、`https`、`socks5`、`socks5h`，必须显式包含端口；配置文件只需 `{"proxy_url":"http://127.0.0.1:18080"}`。命令只向 Claude 网页/API 发送无认证请求，输出与 macOS 相同语义的 JSON：退出码 0 表示传输到达，1 表示传输失败，2 表示配置错误。不会继承系统代理、回退直连、创建账号状态、写客户端日志、启动应用或修改系统设置；代理地址和凭据不进入报告，凭据只经 curl 标准输入传递。401/403 不代表账号可用或启动许可。
 
+## 卸载
+
+```powershell
+# 安装时会把 uninstall.ps1 复制到数据目录,卸载不必再找安装包
+powershell -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\.claude-switcher\uninstall.ps1"
+```
+
+默认动作:停止并注销 `ClaudeBodyguard` 计划任务、结束界面与保镖进程、删除桌面快捷方式、清理 Clash Verge `Script.js` 中的托管规则块(先备份,重启 Verge 后生效)。系统设置按安装时记录的 `system-originals.json` 还原时区、地区格式与 IPv6 绑定,这一步弹一次 UAC;旧版安装没有该文件时,脚本打印当前值由你手动改回。
+
+参数:`-Yes` 免交互;`-PurgeData` 连 `%USERPROFILE%\.claude-switcher` 一起删除,需输入 `DELETE` 确认;`-KeepSystem` 不动系统设置;`-KeepRules` 不动 Clash 规则;`-DryRun` 只打印计划。
+
+账号快照是各账号唯一的本地登录态,默认保留。`%APPDATA%\Claude` 属于 Claude 自身数据,卸载不碰它。
+
 ## 与 macOS 版的差异（注意事项）
 
 > Windows 已对齐 A–D、48 小时出口审查、跨身份保留、指纹/CLI 体检、隔离浏览器、独立代理诊断和加密快照能力。**Shadowrocket 仅 macOS 可用**；Windows 额外支持 WireGuard 与其他 TUN 客户端。Windows 时区映射覆盖美国主要时区、加拿大多伦多/温哥华、日本、韩国、新加坡、台湾、香港、英国、德国、法国、澳大利亚（悉尼/墨尔本）和马来西亚（吉隆坡），其他时区回退到 `Eastern Standard Time`。macOS 使用 launchd 与 `update`，Windows 保留 Release 启动检查 + 一键更新机制。macOS 快照为 DMG，Windows 为上述 `.csnap`。
@@ -172,12 +185,12 @@ claude-switch.ps1 diagnose-proxy --config <私有配置.json>
 | 项目 | 说明 |
 |---|---|
 | 时区名称 | Windows 用 `Eastern Standard Time` 这类 ID,安装器会自动把 IP 城市映射过去 |
-| 保镖频率 | 计划任务登录启动,隐藏窗口常驻,每 10 秒巡检(与 Mac 一致) |
+| 保镖频率 | 计划任务登录启动,隐藏窗口常驻,每 10 秒巡检(与 Mac 一致);电池供电不中断,运行时长不设上限,异常退出最多重启 3 次 |
 | 保镖判定 | 显式客户端模式按「客户端进程/服务 + TUN」；`auto` / `other` 只查 TUN |
 | IPv6 | 关闭的是所有网卡的 ms_tcpip6 绑定;要恢复: `Enable-NetAdapterBinding -ComponentID ms_tcpip6` |
 | SmartScreen | 首次运行可能弹"Windows 已保护你的电脑" → 点「更多信息」→「仍要运行」 |
 | 账号数据目录 | 传统 EXE 版为 `%APPDATA%\Claude`；MSIX/Appx 为 `%LOCALAPPDATA%\Claude-Data\<PackageFamilyName>`，旧版目录不存在时自动发现 |
-| 卸载 | 计划任务里删掉 ClaudeBodyguard,删除 `%USERPROFILE%\.claude-switcher` 和桌面快捷方式即可 |
+| 卸载 | 运行 `uninstall.ps1`,默认保留账号快照,详见[卸载](#卸载) |
 
 ## 已知限制与验证范围
 
