@@ -176,7 +176,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File "$env:USERPROFILE\.claude-sw
 
 参数:`-Yes` 免交互;`-PurgeData` 连 `%USERPROFILE%\.claude-switcher` 一起删除,需输入 `DELETE` 确认;`-KeepSystem` 不动系统设置;`-KeepRules` 不动 Clash 规则;`-DryRun` 只打印计划。
 
-账号快照是各账号唯一的本地登录态,默认保留。`%APPDATA%\Claude` 属于 Claude 自身数据,卸载不碰它。
+账号快照是各账号唯一的本地登录态,默认保留。Claude 自身数据目录(传统版 `%APPDATA%\Claude`,MSIX 版 `%LOCALAPPDATA%\Claude-Data\<PackageFamilyName>`)卸载不碰它。
 
 ## 与 macOS 版的差异（注意事项）
 
